@@ -1,105 +1,100 @@
-# Bot pessoal de tarefas no Telegram
+# 🤖 Daily Summary Bot (AWS Serverless + Gemini AI + Telegram)
 
-O bot usa a API do Telegram por polling, o Gemini para interpretar mensagens e
-SQLite para guardar tarefas localmente. Não precisa de URL pública nem de AWS
-para executar esta versão.
+Um assistente pessoal inteligente no Telegram que entende linguagem natural para gerenciar e agendar tarefas e lembretes. Construído com uma arquitetura **100% Serverless na AWS**, utilizando o poder do **Google Gemini** para Processamento de Linguagem Natural (NLP) e o **AWS CDK** para Infraestrutura como Código (IaC).
 
-## Preparar
+## 🌟 Destaques do Projeto
 
-1. Crie um bot com `@BotFather` no Telegram usando `/newbot` e guarde o token
-   retornado em segredo.
-2. Ative o ambiente e instale as dependências:
+Este projeto foi desenvolvido com foco em escalabilidade, eficiência de custos e melhores práticas de engenharia de software na nuvem:
 
+* **Compreensão de Linguagem Natural (NLP):** Em vez de comandos rígidos como `/lembrar 2026-10-10 14:00 Comprar pão`, o usuário pode simplesmente enviar *"Me lembre de comprar pão amanhã às duas da tarde"*. O **Google Gemini API** processa o texto, identifica a intenção (criar, listar, concluir) e formata a data/hora exata lidando automaticamente com fusos horários (`America/Sao_Paulo`).
+* **Agendamentos de Alta Precisão:** Utiliza o **Amazon EventBridge Scheduler** para criar agendamentos *one-off* (únicos) precisos no nível do minuto. Diferente de arquiteturas de *polling* tradicionais (onde um script roda a cada minuto varrendo o banco de dados), aqui a Lambda de envio é invocada *apenas* no exato momento do lembrete, otimizando os custos na nuvem para próximo de zero.
+* **Infraestrutura como Código (IaC):** Toda a infraestrutura da AWS é provisionada via código Python utilizando o **AWS Cloud Development Kit (CDK)**, garantindo que o ambiente seja reprodutível, versionado e de fácil manutenção.
+* **Segurança em Primeiro Lugar:** Nenhum token (Telegram, Gemini) fica exposto no código ou em variáveis de ambiente abertas. Todos os segredos são gerenciados e criptografados pelo **AWS Secrets Manager**.
+
+## 🏗️ Arquitetura
+
+A arquitetura foi desenhada para ser orientada a eventos (*Event-Driven*):
+
+1. **Telegram API:** O usuário envia uma mensagem no Telegram. O Telegram dispara um Webhook.
+2. **Amazon API Gateway:** Recebe o Webhook do Telegram de forma segura e aciona a primeira função Lambda.
+3. **Lambda (Webhook Handler):** 
+   - Recebe o payload do Telegram.
+   - Envia o texto da mensagem para o **Google Gemini API**.
+   - O Gemini retorna um JSON estruturado com a `intenção` e os `dados` (ex: tarefa e horário).
+   - A Lambda grava a nova tarefa no **Amazon DynamoDB**.
+   - A Lambda cria dinamicamente um *Schedule* no **Amazon EventBridge Scheduler** para o momento exato do lembrete.
+4. **Lambda (Reminder Worker):** 
+   - No momento exato agendado, o EventBridge Scheduler invoca esta Lambda passando o ID da tarefa.
+   - A função busca as informações adicionais, se necessário, marca como enviada no DynamoDB, e dispara a mensagem de volta para o usuário através da API do Telegram.
+
+![AWS Architecture](https://img.shields.io/badge/AWS-Serverless_Architecture-FF9900?style=for-the-badge&logo=amazonaws)
+
+## 🛠️ Tecnologias Utilizadas
+
+* **Linguagem:** Python 3.12+
+* **Cloud Provider:** Amazon Web Services (AWS)
+* **IaC:** AWS CDK (Cloud Development Kit)
+* **Computação:** AWS Lambda
+* **Banco de Dados:** Amazon DynamoDB (NoSQL)
+* **Agendamento:** Amazon EventBridge Scheduler
+* **Segurança:** AWS Secrets Manager, AWS IAM
+* **Inteligência Artificial:** Google Gemini (SDK `google-genai`)
+* **Interface:** Telegram Bot API
+
+## 🚀 Como Executar o Projeto
+
+### Pré-requisitos
+* Node.js instalado (para o AWS CDK).
+* AWS CLI configurada com credenciais válidas.
+* Um Token de Bot do Telegram (obtido via `@BotFather`).
+* Uma Chave de API do Google Gemini.
+
+### Passos para Deploy
+
+1. **Clone o repositório e acesse a pasta:**
    ```bash
+   git clone https://github.com/seu-usuario/daily-summary-bot.git
+   cd daily-summary-bot
+   ```
+
+2. **Crie e ative o ambiente virtual Python:**
+   ```bash
+   python3 -m venv .venv
    source .venv/bin/activate
-   python -m pip install -r requirements.txt
+   pip install -r requirements.txt
    ```
 
-3. Carregue os segredos no terminal, sem incluí-los no código:
-
+3. **Instale as dependências da Lambda (Google GenAI) na pasta `src/`:**
    ```bash
-   read -s -p "Token do BotFather: " TELEGRAM_BOT_TOKEN
-   export TELEGRAM_BOT_TOKEN
-   echo
-
-   read -s -p "Chave do Gemini: " GEMINI_API_KEY
-   export GEMINI_API_KEY
-   echo
+   pip install google-genai pydantic requests -t ./src/
    ```
 
-4. Inicie o bot:
-
+4. **Realize o deploy da infraestrutura usando o CDK:**
    ```bash
-   python telegram_app.py
+   cdk bootstrap # (Apenas na primeira vez na conta/região)
+   cdk deploy
    ```
 
-5. Abra seu bot no Telegram e envie `/id`. Anote o número retornado, pare o
-   processo com `Ctrl+C` e configure seu ID como permitido:
-
-   ```bash
-   export TELEGRAM_ALLOWED_USER_ID=SEU_ID_NUMERICO
-   python telegram_app.py
+5. **Configure os Segredos na AWS:**
+   - Acesse o painel do **AWS Secrets Manager**.
+   - Edite o segredo criado pela stack (ex: `whatsapp-bot-secrets` que agora usaremos para o Telegram) e insira seus tokens:
+   ```json
+   {
+     "TELEGRAM_BOT_TOKEN": "seu_token_aqui",
+     "GEMINI_API_KEY": "sua_chave_aqui"
+   }
    ```
 
-6. Envie `/start` e converse com o bot. O ID permitido evita que outras pessoas
-   usem a lista de tarefas.
-
-## Exemplos
-
-- `Adicione comprar pão`
-- `O que tenho para fazer?`
-- `Concluí a tarefa 1`
-- `Me lembre de beber água amanhã às 9h`
-- `Me envie um resumo das tarefas todos os dias às 8h`
-- `Desative o resumo diário`
-
-Na execução local, as tarefas e os horários ficam em `tasks.db`. O bot verifica
-lembretes vencidos a cada 15 segundos e precisa permanecer rodando para enviar
-no horário.
-
-## Publicar na AWS
-
-O modo AWS usa API Gateway e Lambda para o webhook do Telegram, DynamoDB para
-tarefas e EventBridge Scheduler para lembretes e resumo diário. Configure o
-perfil AWS `default` com permissões para criar CloudFormation, IAM, Lambda,
-API Gateway, DynamoDB, EventBridge Scheduler, Secrets Manager e recursos de
-bootstrap do CDK. O projeto sintetiza por padrão na região `us-east-1`.
-
-1. Pare o bot local com `Ctrl+C` e, na pasta do projeto, prepare o pacote da
-   Lambda e confira a stack localmente:
-
-   ```bash
-   source .venv/bin/activate
-   python -m pip install -r requirements-cdk.txt
-   python build_lambda.py
-   npm exec --yes --package=node@22 --package=aws-cdk@2 -- cdk synth
+6. **Configure o Webhook do Telegram:**
+   - Pegue a URL gerada pelo API Gateway ao final do `cdk deploy`.
+   - Faça uma requisição GET ou POST no seu navegador/Postman para vincular o Telegram à sua API:
+   ```text
+   https://api.telegram.org/bot<SEU_TELEGRAM_BOT_TOKEN>/setWebhook?url=<SUA_URL_DO_API_GATEWAY>
    ```
 
-2. Confira a conta com `aws sts get-caller-identity`. Substitua `ACCOUNT_ID`
-   pelo número retornado e prepare a conta para o CDK:
+## 🎯 Próximos Passos (Roadmap)
+- [ ] Suporte a áudio: Permitir que o usuário envie mensagens de voz, converter para texto usando Whisper (ou o próprio Gemini) e agendar.
+- [ ] Relatório Diário: Uma rotina matinal que resume todas as tarefas agendadas para o dia atual.
 
-   ```bash
-   npm exec --yes --package=node@22 --package=aws-cdk@2 -- \
-     cdk bootstrap aws://ACCOUNT_ID/us-east-1
-   ```
-
-3. Revise os recursos exibidos e publique a aplicação:
-
-   ```bash
-   npm exec --yes --package=node@22 --package=aws-cdk@2 -- \
-     cdk deploy --require-approval broadening
-   ```
-
-4. Execute `python configure_aws.py`. O script pergunta o token do BotFather,
-   a chave Gemini e seu ID numérico do Telegram sem mostrar os segredos na
-   entrada, guarda-os no Secrets Manager e registra o webhook na API do
-   Telegram. Não execute o bot local por polling ao mesmo tempo.
-5. Envie `/start` ao bot e teste. O banco local `tasks.db` não é migrado
-   automaticamente para o DynamoDB.
-
-Os serviços AWS podem gerar custos conforme uso e região. Secrets Manager tem
-custo mensal por segredo; API Gateway, Lambda, DynamoDB, EventBridge Scheduler,
-S3 usado pelo CDK e CloudWatch podem cobrar por uso ou armazenamento. Consulte
-os preços atuais da AWS antes de publicar. A tabela e o segredo têm política de
-retenção, então remover a stack não os apaga automaticamente.
-# ReminderBot
+---
+*Desenvolvido como projeto prático para aprofundamento em arquiteturas Serverless e integrações com IA.*
