@@ -11,9 +11,8 @@ Este projeto foi desenhado com duas abordagens de execução:
 ## 📸 Demonstração
 
 <p align="center">
-  <img src="docs/print_chat.jpeg" width="300" alt="Chat no Telegram">
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="docs/print_notificacao.jpeg" width="300" alt="Notificação na tela de bloqueio">
+  <img width="300" alt="Chat no telegram" src="https://github.com/user-attachments/assets/4c0a4987-9fa0-49a4-a6cf-e9bf66636861" />
+  <img width="300" alt="Notificação na tela de bloqueio" src="https://github.com/user-attachments/assets/8f4b91aa-746b-40c8-aadc-c89cf01b0486" />
 </p>
 
 *Exemplo do bot em funcionamento agendando tarefas em linguagem natural e enviando notificações na tela de bloqueio.*
