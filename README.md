@@ -8,6 +8,18 @@ Este projeto foi desenhado com duas abordagens de execução:
 
 ---
 
+## 📸 Demonstração
+
+<p align="center">
+  <img src="docs/print_chat.jpeg" width="300" alt="Chat no Telegram">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/print_notificacao.jpeg" width="300" alt="Notificação na tela de bloqueio">
+</p>
+
+*Exemplo do bot em funcionamento agendando tarefas em linguagem natural e enviando notificações na tela de bloqueio.*
+
+---
+
 ## 🔒 Segurança em Primeiro Lugar
 O bot implementa uma trava de segurança via `TELEGRAM_ALLOWED_USER_ID`. Apenas o seu próprio usuário do Telegram terá permissão para visualizar, criar ou concluir tarefas. Isso garante que sua lista seja totalmente privada, mesmo que outra pessoa encontre o seu bot.
 
